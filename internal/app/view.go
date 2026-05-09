@@ -25,7 +25,7 @@ func (m Model) View() tea.View {
 	if m.Height <= 0 {
 		composed = lipgloss.JoinVertical(lipgloss.Left, picker, bar)
 	} else {
-		pickerLines := strings.Count(picker, "\n") + 1
+		pickerLines := strings.Count(strings.TrimRight(picker, "\n"), "\n") + 1
 		// Reserve 1 line for the bar; remaining vertical space is filler.
 		filler := m.Height - pickerLines - 1
 		if filler < 0 {

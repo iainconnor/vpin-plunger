@@ -89,9 +89,14 @@ func (s StatusBar) Init() tea.Cmd {
 	return s.Spinner.Init()
 }
 
-// Update forwards messages to the embedded spinner so animation frames advance.
+// Update forwards messages to the embedded spinner so animation frames advance,
+// and handles WindowSizeMsg so the determinate bar is rebuilt at the new width.
 // State transitions (Task, Progress, etc.) are written by the parent Model.
 func (s StatusBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		s.Width = ws.Width
+		s.Bar = NewDeterminateBar(ws.Width / 4)
+	}
 	updatedSpinner, cmd := s.Spinner.Update(msg)
 	if sp, ok := updatedSpinner.(IndeterminateSpinner); ok {
 		s.Spinner = sp

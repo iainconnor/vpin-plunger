@@ -111,20 +111,17 @@ func (p Picker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			idx := int(key[0] - '1')
 			if idx >= 0 && idx < len(p.Candidates) {
 				p.Cursor = idx
-				fmt.Println("[picker] selected:", p.Candidates[idx].Name)
 			}
 		case "enter":
-			if p.Cursor < len(p.Candidates) {
-				fmt.Println("[picker] confirmed:", p.Candidates[p.Cursor].Name)
-			}
+			// confirmed — wired in Phase 4
 		case "s":
 			p.InputFocus = true
 			cmd := p.Input.Focus()
 			return p, cmd
 		case "r":
-			fmt.Println("[picker] review")
+			// review — wired in Phase 4
 		case "i":
-			fmt.Println("[picker] ignore")
+			// ignore — wired in Phase 4
 		case "q":
 			return p, tea.Quit
 		}
