@@ -39,5 +39,7 @@ func (m Model) View() tea.View {
 		)
 	}
 
-	return tea.NewView(composed)
+	v := tea.NewView(composed)
+	v.AltScreen = true
+	return v
 }
