@@ -16,7 +16,7 @@ type StatusBar struct {
 	Message string
 }
 
-func (s StatusBar) Init() tea.Cmd                           { return nil }
+func (s StatusBar) Init() tea.Cmd                            { return nil }
 func (s StatusBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return s, nil }
 func (s StatusBar) View() tea.View {
 	content := lipgloss.NewStyle().
