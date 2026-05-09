@@ -16,11 +16,12 @@ type StatusBar struct {
 	Message string
 }
 
-func (s StatusBar) Init() (tea.Model, tea.Cmd) { return s, nil }
+func (s StatusBar) Init() tea.Cmd                           { return nil }
 func (s StatusBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return s, nil }
-func (s StatusBar) View() string {
-	return lipgloss.NewStyle().
+func (s StatusBar) View() tea.View {
+	content := lipgloss.NewStyle().
 		Background(theme.ColorStatusBar).
 		Foreground(theme.ColorDMD).
 		Render(s.State)
+	return tea.NewView(content)
 }
