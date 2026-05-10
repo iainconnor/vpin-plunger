@@ -3,6 +3,7 @@ package formats
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -126,7 +127,13 @@ func copyRARFixture(out string) error {
 		// best-effort: ask Go for the module path
 		gopath = filepath.Join(os.Getenv("USERPROFILE"), "go")
 	}
-	src := filepath.Join(gopath, "pkg", "mod", "github.com", "mholt", "archives@v0.1.5", "testdata", "test.part01.rar")
+	// Derive the mholt/archives version dynamically so this path stays
+	// correct when the dependency is upgraded (WR-03).
+	archivesVersion, err := resolveModuleVersion("github.com/mholt/archives")
+	if err != nil {
+		return fmt.Errorf("copyRARFixture: cannot resolve mholt/archives version: %w", err)
+	}
+	src := filepath.Join(gopath, "pkg", "mod", "github.com", "mholt", "archives@"+archivesVersion, "testdata", "test.part01.rar")
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -139,6 +146,46 @@ func copyRARFixture(out string) error {
 	defer o.Close()
 	_, err = io.Copy(o, in)
 	return err
+}
+
+// resolveModuleVersion returns the version string for the named module by
+// running "go list -m <module>" in the module root. This avoids hardcoding
+// version strings that become stale when dependencies are upgraded.
+func resolveModuleVersion(module string) (string, error) {
+	cmd := exec.Command("go", "list", "-m", module)
+	// Run from the module root so go.mod is found regardless of test working dir.
+	cmd.Dir = moduleRoot()
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("go list -m %s: %w", module, err)
+	}
+	// Output format: "<module> <version>\n"
+	parts := strings.Fields(strings.TrimSpace(string(out)))
+	if len(parts) < 2 {
+		return "", fmt.Errorf("unexpected go list output: %q", string(out))
+	}
+	return parts[1], nil
+}
+
+// moduleRoot walks up from the test binary directory to find the directory
+// containing go.mod. Falls back to the current working directory.
+func moduleRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	wd, _ := os.Getwd()
+	return wd
 }
 
 func TestZIPHandler_Peek(t *testing.T) {
