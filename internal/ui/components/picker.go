@@ -63,6 +63,22 @@ func NewPicker() Picker {
 	}
 }
 
+// SetCandidates replaces the candidate slice and clamps the cursor so it
+// always points at a valid row. Call this whenever catalog results arrive.
+// Without the clamp, a stale cursor past the new slice end causes the
+// highlighted row to silently disappear (Render iterates with range — no
+// panic, but no highlight either).
+func (p *Picker) SetCandidates(candidates []Candidate) {
+	p.Candidates = candidates
+	if len(p.Candidates) == 0 {
+		p.Cursor = 0
+		return
+	}
+	if p.Cursor >= len(p.Candidates) {
+		p.Cursor = len(p.Candidates) - 1
+	}
+}
+
 // Init starts the input cursor blink. The blink is a tea.Cmd — bubbletea
 // schedules it; no goroutines.
 func (p Picker) Init() tea.Cmd {
@@ -114,14 +130,19 @@ func (p Picker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			// confirmed — wired in Phase 4
+			return p, nil
 		case "s":
 			p.InputFocus = true
 			cmd := p.Input.Focus()
 			return p, cmd
 		case "r":
-			// review — wired in Phase 4
+			// review — wired in Phase 4; placeholder output keeps the tea.Cmd
+			// contract explicit so future callers adding a real cmd cannot
+			// accidentally drop it by falling through to the final return.
+			return p, tea.Println("[picker] review")
 		case "i":
-			// ignore — wired in Phase 4
+			// ignore — wired in Phase 4; same rationale as "r" above.
+			return p, tea.Println("[picker] ignore")
 		case "q":
 			return p, tea.Quit
 		}
