@@ -21,9 +21,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = m2.Width
 		m.Height = m2.Height
-		// Propagate to embedded StatusBar so its Width-aware View() sizes correctly.
-		m.StatusBar.Width = m2.Width
-		// Picker tracks its own width via its Update — the message is forwarded below.
+		// Width and Bar resize are handled inside StatusBar.Update (WindowSizeMsg
+		// case) — no direct field write needed here. Picker likewise owns its own
+		// resize. Both components receive the message via the fan-out below.
 	case tea.KeyMsg:
 		// Global quit on ctrl+c regardless of focus state. The Picker handles
 		// its own 'q' shortcut (only when not focused on the input) so we do

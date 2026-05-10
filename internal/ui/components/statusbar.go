@@ -46,7 +46,7 @@ func NewStatusBar(width int) StatusBar {
 			"BkG": 1,
 		},
 		Spinner: NewIndeterminateSpinner(),
-		Bar:     NewDeterminateBar(width / 4),
+		Bar:     NewDeterminateBar(barWidthFor(width)),
 	}
 }
 
@@ -84,6 +84,18 @@ func renderPill(shortCode string, count int) string {
 		Render(fmt.Sprintf("%s×%d", shortCode, count))
 }
 
+// barWidthFor returns the progress-bar width for a given terminal width.
+// Uses width/4 (integer division) with a minimum of 1 to avoid passing zero
+// to progress.WithWidth — the bubbles progress library may panic or clamp
+// unexpectedly on a zero-width bar.
+func barWidthFor(termWidth int) int {
+	w := termWidth / 4
+	if w < 1 {
+		w = 1
+	}
+	return w
+}
+
 // Init starts the spinner ticking via tea.Cmd.
 func (s StatusBar) Init() tea.Cmd {
 	return s.Spinner.Init()
@@ -95,7 +107,7 @@ func (s StatusBar) Init() tea.Cmd {
 func (s StatusBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if ws, ok := msg.(tea.WindowSizeMsg); ok {
 		s.Width = ws.Width
-		s.Bar = NewDeterminateBar(ws.Width / 4)
+		s.Bar = NewDeterminateBar(barWidthFor(ws.Width))
 	}
 	updatedSpinner, cmd := s.Spinner.Update(msg)
 	if sp, ok := updatedSpinner.(IndeterminateSpinner); ok {
