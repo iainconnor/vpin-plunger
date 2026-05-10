@@ -305,7 +305,10 @@ func loadedCatalog(t *testing.T, trailingArticle bool) *Catalog {
 
 func TestFindMatch_PathA_SameEra(t *testing.T) {
 	c := loadedCatalog(t, true)
-	results := c.FindMatch("Phoenix (Williams, 1978)", 5)
+	results, err := c.FindMatch("Phoenix (Williams, 1978)", 5)
+	if err != nil {
+		t.Fatalf("FindMatch error: %v", err)
+	}
 	if len(results) == 0 {
 		t.Fatal("FindMatch returned no candidates")
 	}
@@ -321,7 +324,10 @@ func TestFindMatch_PathA_SameEra(t *testing.T) {
 func TestFindMatch_PathB_FullCatalogFallback(t *testing.T) {
 	c := loadedCatalog(t, true)
 	// Stem with no signal at all: forces Path B.
-	results := c.FindMatch("Phoenix v600", 3)
+	results, err := c.FindMatch("Phoenix v600", 3)
+	if err != nil {
+		t.Fatalf("FindMatch error: %v", err)
+	}
 	if len(results) == 0 {
 		t.Fatal("Path B returned no candidates")
 	}
@@ -333,7 +339,10 @@ func TestFindMatch_PathB_FullCatalogFallback(t *testing.T) {
 
 func TestBestMatch_AboveThreshold(t *testing.T) {
 	c := loadedCatalog(t, true)
-	m := c.BestMatch("Phoenix (Williams, 1978)")
+	m, err := c.BestMatch("Phoenix (Williams, 1978)")
+	if err != nil {
+		t.Fatalf("BestMatch error: %v", err)
+	}
 	if m == nil {
 		t.Fatal("BestMatch nil for high-quality input")
 	}
@@ -344,7 +353,10 @@ func TestBestMatch_AboveThreshold(t *testing.T) {
 
 func TestBestMatch_BelowThreshold(t *testing.T) {
 	c := loadedCatalog(t, true)
-	m := c.BestMatch("ZZZ totally unrelated string xyzzy")
+	m, err := c.BestMatch("ZZZ totally unrelated string xyzzy")
+	if err != nil {
+		t.Fatalf("BestMatch error: %v", err)
+	}
 	if m != nil {
 		t.Fatalf("BestMatch = %+v, want nil for unmatched query", m)
 	}
@@ -352,7 +364,10 @@ func TestBestMatch_BelowThreshold(t *testing.T) {
 
 func TestForceMatch_MasterID(t *testing.T) {
 	c := loadedCatalog(t, true)
-	m := c.ForceMatch("MID-PHX")
+	m, err := c.ForceMatch("MID-PHX")
+	if err != nil {
+		t.Fatalf("ForceMatch error: %v", err)
+	}
 	if m == nil {
 		t.Fatal("ForceMatch returned nil for known MasterID")
 	}
@@ -366,7 +381,10 @@ func TestForceMatch_MasterID(t *testing.T) {
 
 func TestForceMatch_IPDBNum(t *testing.T) {
 	c := loadedCatalog(t, true)
-	m := c.ForceMatch("2001")
+	m, err := c.ForceMatch("2001")
+	if err != nil {
+		t.Fatalf("ForceMatch error: %v", err)
+	}
 	if m == nil {
 		t.Fatal("ForceMatch returned nil for known IPDBNum")
 	}
@@ -380,7 +398,35 @@ func TestForceMatch_IPDBNum(t *testing.T) {
 
 func TestForceMatch_Unknown(t *testing.T) {
 	c := loadedCatalog(t, true)
-	if m := c.ForceMatch("NOT-A-REAL-ID"); m != nil {
+	m, err := c.ForceMatch("NOT-A-REAL-ID")
+	if err != nil {
+		t.Fatalf("ForceMatch error: %v", err)
+	}
+	if m != nil {
 		t.Fatalf("ForceMatch = %+v, want nil", m)
+	}
+}
+
+func TestFindMatch_ErrNotLoaded(t *testing.T) {
+	c := New(&Config{YearWindow: DefaultYearWindow})
+	_, err := c.FindMatch("Phoenix", 5)
+	if err != ErrNotLoaded {
+		t.Fatalf("FindMatch on unloaded catalog: got %v, want ErrNotLoaded", err)
+	}
+}
+
+func TestBestMatch_ErrNotLoaded(t *testing.T) {
+	c := New(&Config{YearWindow: DefaultYearWindow})
+	_, err := c.BestMatch("Phoenix")
+	if err != ErrNotLoaded {
+		t.Fatalf("BestMatch on unloaded catalog: got %v, want ErrNotLoaded", err)
+	}
+}
+
+func TestForceMatch_ErrNotLoaded(t *testing.T) {
+	c := New(&Config{YearWindow: DefaultYearWindow})
+	_, err := c.ForceMatch("MID-PHX")
+	if err != ErrNotLoaded {
+		t.Fatalf("ForceMatch on unloaded catalog: got %v, want ErrNotLoaded", err)
 	}
 }

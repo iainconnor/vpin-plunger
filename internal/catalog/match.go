@@ -73,55 +73,63 @@ func topN(rs []MatchResult, limit int) []MatchResult {
 
 // FindMatch implements CAT-05: Path A same-era filter with Path B full-catalog
 // WRatio fallback. Returns up to limit candidates ordered by descending
-// confidence. Returns nil when c.entries is empty (Load not yet called).
-func (c *Catalog) FindMatch(stem string, limit int) []MatchResult {
-	if len(c.entries) == 0 {
-		return nil
+// confidence. Returns ErrNotLoaded when Load() has not yet been called.
+func (c *Catalog) FindMatch(stem string, limit int) ([]MatchResult, error) {
+	if c.entries == nil {
+		return nil, ErrNotLoaded
 	}
 	sig := naming.ExtractSignal(stem)
 	if sig != nil {
 		pathA := c.findMatchPathA(sig)
 		if len(pathA) > 0 && pathA[0].Confidence >= ThresholdInteractive {
-			return topN(pathA, limit)
+			return topN(pathA, limit), nil
 		}
 	}
-	return topN(c.findMatchPathB(stem), limit)
+	return topN(c.findMatchPathB(stem), limit), nil
 }
 
 // BestMatch implements CAT-06: returns the top FindMatch candidate when its
 // confidence is at least ThresholdInteractive (72). Returns nil otherwise.
+// Returns ErrNotLoaded when Load() has not yet been called.
 // Auto-assignable when result.Confidence >= ThresholdAutoAssign (92).
-func (c *Catalog) BestMatch(stem string) *MatchResult {
-	results := c.FindMatch(stem, 1)
+func (c *Catalog) BestMatch(stem string) (*MatchResult, error) {
+	results, err := c.FindMatch(stem, 1)
+	if err != nil {
+		return nil, err
+	}
 	if len(results) == 0 {
-		return nil
+		return nil, nil
 	}
 	if results[0].Confidence < ThresholdInteractive {
-		return nil
+		return nil, nil
 	}
 	r := results[0]
-	return &r
+	return &r, nil
 }
 
 // ForceMatch implements CAT-07: exact (case-insensitive, whitespace-trimmed)
 // match against MasterID first, then IPDBNum. Returns Confidence=100 with
 // MatchField identifying which column matched, or nil when neither matches.
-func (c *Catalog) ForceMatch(id string) *MatchResult {
+// Returns ErrNotLoaded when Load() has not yet been called.
+func (c *Catalog) ForceMatch(id string) (*MatchResult, error) {
+	if c.entries == nil {
+		return nil, ErrNotLoaded
+	}
 	idTrim := strings.TrimSpace(id)
 	if idTrim == "" {
-		return nil
+		return nil, nil
 	}
 	for _, e := range c.entries {
 		if strings.EqualFold(strings.TrimSpace(e.MasterID), idTrim) {
 			r := MatchResult{Entry: e, Confidence: 100, MatchField: "master_id"}
-			return &r
+			return &r, nil
 		}
 	}
 	for _, e := range c.entries {
 		if strings.EqualFold(strings.TrimSpace(e.IPDBNum), idTrim) {
 			r := MatchResult{Entry: e, Confidence: 100, MatchField: "ipdb_num"}
-			return &r
+			return &r, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
