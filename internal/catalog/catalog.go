@@ -5,15 +5,15 @@
 // closure (Phase 6).
 package catalog
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"os"
+)
 
 // ErrNotLoaded is returned by match methods when called before Load() has
 // populated the entry slice.
 var ErrNotLoaded = errors.New("catalog: Load() not called or did not succeed")
-
-// errNotImplemented is a transient sentinel used by Wave 1 skeletons.
-// Replaced by real implementations in Wave 2 plans 03-04 and 03-05.
-var errNotImplemented = errors.New("catalog: not implemented (Wave 2)")
 
 // Catalog holds the parsed catalog entries for the lifetime of one run.
 // The entries slice is private — populated by Load(), read by match methods.
@@ -38,10 +38,28 @@ func (c *Catalog) Entries() []SheetEntry {
 // parses all data tabs (those whose row 1 contains a "GameName" header), and
 // populates the in-process entry slice. Idempotent: safe to call again, but
 // in practice called once per run (CAT-01, CAT-02, CAT-09).
-//
-// Implementation lives in download.go + parse.go and is wired up by plan 03-04.
 func (c *Catalog) Load() error {
-	return errNotImplemented
+	stale, err := IsStale(c.cfg.CachePath, c.cfg.Staleness)
+	if err != nil {
+		return fmt.Errorf("catalog stale check: %w", err)
+	}
+	if stale {
+		if err := Download(c.cfg.SheetURL, c.cfg.CachePath); err != nil {
+			return fmt.Errorf("catalog download: %w", err)
+		}
+	}
+	f, err := os.Open(c.cfg.CachePath)
+	if err != nil {
+		return fmt.Errorf("catalog open %s: %w", c.cfg.CachePath, err)
+	}
+	defer f.Close()
+
+	entries, err := ParseXLSX(f, c.cfg.TrailingArticle)
+	if err != nil {
+		return fmt.Errorf("catalog parse: %w", err)
+	}
+	c.entries = entries
+	return nil
 }
 
 // FindMatch returns up to limit candidate matches for stem, ordered by
