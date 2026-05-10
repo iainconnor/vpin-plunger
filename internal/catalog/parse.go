@@ -52,7 +52,13 @@ func parseSheet(rows *excelize.Rows, trailingArticle bool) []SheetEntry {
 	if !rows.Next() {
 		return nil // empty sheet
 	}
-	headers, _ := rows.Columns()
+	headers, err := rows.Columns()
+	if err != nil {
+		// Header row decode error: cannot determine column layout; skip sheet.
+		for rows.Next() {
+		}
+		return nil
+	}
 	colIdx := make(map[string]int, len(headers))
 	for i, h := range headers {
 		colIdx[strings.TrimSpace(h)] = i
@@ -77,7 +83,12 @@ func parseSheet(rows *excelize.Rows, trailingArticle bool) []SheetEntry {
 
 	var entries []SheetEntry
 	for rows.Next() {
-		row, _ := rows.Columns()
+		row, err := rows.Columns()
+		if err != nil {
+			// Corrupt or unexpected cell; skip this row rather than returning
+			// a partial entry that could mislead callers.
+			continue
+		}
 		if allEmpty(row) {
 			continue
 		}
