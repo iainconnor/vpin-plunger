@@ -151,7 +151,7 @@ func ClassifyDirectory(name string, members []string) AssetType {
 		if !strings.Contains(m, "/") {
 			rootBasenames[base] = true
 		}
-		if base == "screens.pup" {
+		if !strings.Contains(m, "/") && base == "screens.pup" {
 			hasScreensPup = true
 		}
 		extPresent[strings.ToLower(path.Ext(base))] = true
