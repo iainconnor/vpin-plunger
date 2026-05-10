@@ -13,6 +13,28 @@ import (
 	"github.com/iainconnor/vpin-plunger/internal/ui/theme"
 )
 
+// StatusState is the system-state label used by StatusBar zone 4. It mirrors
+// app.AppState but is declared here to avoid an import cycle (components ←
+// app). The canonical source of truth for valid values is app.AppState in
+// internal/app/state.go. When adding new states, update BOTH types and keep
+// them in sync. Callers in the app package bridge the two with a string cast:
+//
+//	sb.State = string(app.StateIdle)
+//
+// If this boundary becomes untenable, move AppState to internal/types so that
+// both packages can import it without a cycle.
+type StatusState = string
+
+// Valid StatusState values — mirror app.AppState constants.
+const (
+	StatusStateIdle      StatusState = "IDLE"
+	StatusStateLoading   StatusState = "LOADING"
+	StatusStateScanning  StatusState = "SCANNING"
+	StatusStateMatching  StatusState = "MATCHING"
+	StatusStateExecuting StatusState = "EXECUTING"
+	StatusStateDone      StatusState = "DONE"
+)
+
 // StatusBar is the pinned bottom bar. Always visible. 4 zones left-to-right.
 // Zone 1: spinner + task description (transient; hidden when State == "IDLE" or "DONE")
 // Zone 2: progress bar + count + percentage (transient; shown during SCANNING / EXECUTING)
@@ -20,7 +42,7 @@ import (
 // Zone 4: system state label (permanent — always amber, always visible)
 type StatusBar struct {
 	Width      int
-	State      string         // one of "IDLE", "LOADING", "SCANNING", "MATCHING", "EXECUTING", "DONE"
+	State      StatusState    // use StatusState* constants; mirrors app.AppState
 	Task       string         // zone 1 description (e.g. "Extracting archive")
 	Progress   float64        // zone 2: 0.0–1.0
 	Current    int            // zone 2: numerator
