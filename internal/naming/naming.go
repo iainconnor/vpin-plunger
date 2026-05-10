@@ -105,7 +105,10 @@ var (
 	reSignal = regexp.MustCompile(`(?i)^(.*?)\s*\(\s*([^\d(),]+?)\s*,?\s*(\d{4})`)
 
 	// Noise tokens (version tags, format qualifiers).
-	reNoise = regexp.MustCompile(`(?i)\b(v?\d+[\d.]*|vpx|vp[xt]?|mod|update|final|beta|alpha|release|rc\d*)\b`)
+	// The v prefix is required for digit sequences (v600, v1.2.3) so that
+	// numeric suffixes that are part of a game title (e.g. "Space Shuttle 3")
+	// are preserved in Path B matching.
+	reNoise = regexp.MustCompile(`(?i)\b(v\d+[\d.]*|vpx|vp[xt]?|mod|update|final|beta|alpha|release|rc\d*)\b`)
 
 	// Whitespace collapse: used in NormalizeForMatching.
 	reWhitespace = regexp.MustCompile(`\s+`)
