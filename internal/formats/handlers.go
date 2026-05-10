@@ -105,7 +105,7 @@ func (SevenZipHandler) Peek(p string) ([]string, error) {
 	defer r.Close()
 	names := make([]string, 0, len(r.File))
 	for _, f := range r.File {
-		names = append(names, f.Name)
+		names = append(names, strings.ReplaceAll(f.Name, `\`, `/`))
 	}
 	return names, nil
 }
@@ -169,7 +169,7 @@ func (RARHandler) Peek(p string) ([]string, error) {
 	}
 	names := make([]string, 0, len(files))
 	for _, f := range files {
-		names = append(names, f.Name)
+		names = append(names, strings.ReplaceAll(f.Name, `\`, `/`))
 	}
 	return names, nil
 }
