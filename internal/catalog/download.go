@@ -32,8 +32,10 @@ func Download(url, destPath string) error {
 		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
 	}
 
-	// Limit response to 50 MB to prevent memory exhaustion (RESEARCH.md security domain).
-	body := io.LimitReader(resp.Body, 50*1024*1024)
+	// maxSize is the hard cap on catalog response size.
+	// Read maxSize+1 bytes so we can detect truncation: if n > maxSize the
+	// response exceeded the limit rather than landing exactly on it.
+	const maxSize = 50 * 1024 * 1024
 
 	dir := filepath.Dir(destPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -48,9 +50,14 @@ func Download(url, destPath string) error {
 	// Clean up temp file on failure; no-op when os.Rename succeeds (file is gone).
 	defer func() { _ = os.Remove(tmpPath) }()
 
-	if _, err := io.Copy(tmp, body); err != nil {
+	n, err := io.Copy(tmp, io.LimitReader(resp.Body, maxSize+1))
+	if err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("copy: %w", err)
+	}
+	if n > maxSize {
+		_ = tmp.Close()
+		return fmt.Errorf("catalog response exceeds %d MB limit", maxSize/(1024*1024))
 	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close tmp: %w", err)
