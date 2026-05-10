@@ -1,6 +1,9 @@
 package naming
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNormalize_StripPossessive(t *testing.T) {
 	cases := []struct{ in, want string }{
@@ -168,19 +171,17 @@ func TestNormalizeForMatching(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
 			got := NormalizeForMatching(tc.in, false)
-			// Loose equality: implementation may collapse to lowercase or
-			// preserve original case; whitespace is collapsed.
 			if got == "" {
 				t.Fatalf("NormalizeForMatching(%q) returned empty", tc.in)
 			}
-			// Critical invariants regardless of casing:
-			// 1. Result is shorter than input (noise was stripped).
-			// 2. Result does not contain version tokens.
+			// Result must be shorter than input (noise was stripped).
 			if len(got) >= len(tc.in) {
 				t.Errorf("NormalizeForMatching(%q) = %q; expected noise-stripping to shorten", tc.in, got)
 			}
-			// Optional exact comparison if implementation is stable:
-			_ = tc.want
+			// Exact comparison (case-insensitive) against the expected value.
+			if strings.ToLower(got) != strings.ToLower(tc.want) {
+				t.Errorf("NormalizeForMatching(%q) = %q, want %q", tc.in, got, tc.want)
+			}
 		})
 	}
 }
