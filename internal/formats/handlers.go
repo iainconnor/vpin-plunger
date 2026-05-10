@@ -81,9 +81,11 @@ func copyZipMember(f *zip.File, target string) error {
 	if err != nil {
 		return err
 	}
-	defer wf.Close()
-	_, err = io.Copy(wf, rc)
-	return err
+	if _, err = io.Copy(wf, rc); err != nil {
+		wf.Close()
+		return err
+	}
+	return wf.Close() // surface flush/sync errors
 }
 
 // SevenZipHandler handles .7z archives using github.com/bodgit/sevenzip (D-09).
