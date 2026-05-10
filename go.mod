@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mholt/archives v0.1.5
-	github.com/nwaplus/rardecode/v2 v2.2.0
+	github.com/nwaples/rardecode/v2 v2.2.0
 	github.com/paul-mannino/go-fuzzywuzzy v0.0.0-20241117160931-a1769aeb6b21
 	github.com/spf13/cobra v1.10.2
 	github.com/xuri/excelize/v2 v2.10.1
