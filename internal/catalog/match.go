@@ -18,10 +18,17 @@ import (
 // findMatchPathA scores entries that pass the same-era filter (manufacturer
 // case-insensitive match + |catalog.Year - signal.Year| <= cfg.YearWindow).
 // D-04: ±window, NOT exact-year as the original migration brief specified.
+// Returns nil when sig.Year == 0 so the caller falls through to Path B.
 func (c *Catalog) findMatchPathA(sig *naming.Signal) []MatchResult {
+	if sig.Year == 0 {
+		return nil // no year in signal; fall through to Path B
+	}
 	var out []MatchResult
 	qNorm := strings.ToLower(naming.Normalize(sig.Name, c.cfg.TrailingArticle))
 	for _, e := range c.entries {
+		if e.Year == 0 {
+			continue // skip entries with unknown manufacture year
+		}
 		if !strings.EqualFold(strings.TrimSpace(e.Manufacturer), strings.TrimSpace(sig.Manufacturer)) {
 			continue
 		}
