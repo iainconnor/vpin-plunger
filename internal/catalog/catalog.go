@@ -61,33 +61,3 @@ func (c *Catalog) Load() error {
 	c.entries = entries
 	return nil
 }
-
-// FindMatch returns up to limit candidate matches for stem, ordered by
-// descending confidence. Path A: same-era filter (manufacturer match +
-// |catalog_year - signal_year| <= cfg.YearWindow) -> WRatio scoring.
-// Path B (fallback when Path A best < ThresholdInteractive): full-catalog
-// WRatio against NormalizeForMatching-stripped names (CAT-05).
-//
-// Implementation lives in match.go and is wired up by plan 03-05.
-func (c *Catalog) FindMatch(stem string, limit int) []MatchResult {
-	return nil
-}
-
-// BestMatch returns the top FindMatch result when its confidence is at
-// least ThresholdInteractive (72). Returns nil when no candidate clears
-// the floor. Auto-assignable when the returned result has Confidence >=
-// ThresholdAutoAssign (92) (CAT-06).
-//
-// Implementation lives in match.go and is wired up by plan 03-05.
-func (c *Catalog) BestMatch(stem string) *MatchResult {
-	return nil
-}
-
-// ForceMatch returns a synthetic MatchResult with Confidence=100 when id
-// matches an entry's MasterID or IPDBNum (case-insensitive). Returns nil
-// when no entry matches. MatchField is "master_id" or "ipdb_num" (CAT-07).
-//
-// Implementation lives in match.go and is wired up by plan 03-05.
-func (c *Catalog) ForceMatch(id string) *MatchResult {
-	return nil
-}
