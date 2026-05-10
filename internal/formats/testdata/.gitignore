@@ -1,0 +1,4 @@
+# Generated test fixtures — built by TestMain at test time
+*.zip
+*.7z
+*.rar
