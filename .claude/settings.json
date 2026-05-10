@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"C:/vPinball/vpin-plunger\" && git push 2>&1 || true",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "Pushing to remote..."
+          }
+        ]
+      }
+    ]
+  }
+}

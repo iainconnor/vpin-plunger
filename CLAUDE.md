@@ -78,6 +78,11 @@ Asset labels: colored rounded pill badges.
 - Undisclosed new dependencies
 - Logic in main.go
 
+## Windows Environment
+- Go binary: `C:\Program Files\Go\bin\go.exe` (not in Bash PATH — use full path or PowerShell)
+- All `go build`, `go test`, `go mod tidy` commands must use the full path when invoked via Bash tool
+- PowerShell has Go available via full path: `& "C:\Program Files\Go\bin\go.exe" ...`
+
 ---
 
 ## GSD Workflow
