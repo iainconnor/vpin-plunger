@@ -143,7 +143,9 @@ func (SevenZipHandler) Extract(src, dest string) error {
 		}
 		_, copyErr := io.Copy(wf, rc)
 		rc.Close()
-		wf.Close()
+		if closeErr := wf.Close(); closeErr != nil && copyErr == nil {
+			return fmt.Errorf("7z extract %s: close %s: %w", src, target, closeErr)
+		}
 		if copyErr != nil {
 			return fmt.Errorf("7z extract %s: copy member %s: %w", src, f.Name, copyErr)
 		}
@@ -208,7 +210,9 @@ func (RARHandler) Extract(src, dest string) error {
 			return fmt.Errorf("rar extract %s: create %s: %w", src, target, err)
 		}
 		_, copyErr := io.Copy(wf, r)
-		wf.Close()
+		if closeErr := wf.Close(); closeErr != nil && copyErr == nil {
+			return fmt.Errorf("rar extract %s: close %s: %w", src, target, closeErr)
+		}
 		if copyErr != nil {
 			return wrapRARError(src, "extract member "+hdr.Name, copyErr)
 		}
