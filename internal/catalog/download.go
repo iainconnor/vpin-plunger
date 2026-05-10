@@ -13,12 +13,17 @@ import (
 	"time"
 )
 
+// downloadTimeout caps how long a catalog download may take. Two minutes is
+// generous for a spreadsheet but prevents an indefinitely blocked tea.Cmd.
+const downloadTimeout = 2 * time.Minute
+
 // Download fetches the xlsx file at url and writes it atomically to destPath.
 // An atomic write (temp file in the same directory + rename) ensures no partial
 // file is left if the download or copy fails. The response body is limited to
 // 50 MB to guard against oversized or malicious responses.
 func Download(url, destPath string) error {
-	resp, err := http.Get(url) //nolint:noctx // catalog download; no request context needed
+	client := &http.Client{Timeout: downloadTimeout}
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("GET %s: %w", url, err)
 	}
