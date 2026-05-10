@@ -184,7 +184,7 @@ func (RARHandler) Extract(src, dest string) error {
 	destClean := filepath.Clean(dest) + string(os.PathSeparator)
 	for {
 		hdr, err := r.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
