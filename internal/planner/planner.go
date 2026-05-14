@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"context"
 	"time"
 
 	"github.com/iainconnor/vpin-plunger/internal/catalog"
@@ -158,6 +159,41 @@ func BuildPlan(
 	cfg *Config,
 	matchFn MatchFn,
 ) (*ProcessPlan, error) {
-	// Stub: full implementation assembled across 04-02 (scan.go) and 04-03 (match.go).
-	return &ProcessPlan{DownloadsDir: downloadsDir}, nil
+	if matchFn == nil {
+		matchFn = AutoSelectMatchFn
+	}
+
+	plan := &ProcessPlan{DownloadsDir: downloadsDir}
+
+	ctx := context.Background()
+
+	// Pass 1 (bundle pre-pass) + Pass 2 (recursive walk): populate plan.Actions
+	if err := buildScanActions(ctx, downloadsDir, cfg, plan); err != nil {
+		return nil, err
+	}
+
+	// Match pass: resolve Match=nil actions via catalog + matchFn
+	if err := applyMatches(plan, cat, cfg, matchFn); err != nil {
+		return nil, err
+	}
+
+	// Dedup post-pass: routes dedup losers to review, kills orphaned REGISTER_GAME.
+	// Implemented in dedup.go (04-04). Called here once that plan is applied.
+	dedup(plan)
+
+	// Rehearsal path remapping: rewrite all Dest fields to RehearsalDir subtree.
+	// Implemented in remap.go (04-05). Called here once that plan is applied.
+	if cfg.Rehearsal {
+		RemapForRehearsal(plan, cfg)
+	}
+
+	return plan, nil
 }
+
+// dedup is the deduplication post-pass. Implemented in dedup.go (plan 04-04).
+// This stub satisfies the compiler until 04-04 is applied.
+func dedup(_ *ProcessPlan) {}
+
+// RemapForRehearsal rewrites all Dest fields in the plan to rehearsal paths.
+// Implemented in remap.go (plan 04-05). This stub satisfies the compiler.
+func RemapForRehearsal(_ *ProcessPlan, _ *Config) {}
