@@ -179,7 +179,7 @@ func BuildPlan(
 
 	// Dedup post-pass: routes dedup losers to review, kills orphaned REGISTER_GAME.
 	// Implemented in dedup.go (04-04). Called here once that plan is applied.
-	dedup(plan)
+	dedup(plan, cfg.ReviewDir)
 
 	// Rehearsal path remapping: rewrite all Dest fields to RehearsalDir subtree.
 	// Implemented in remap.go (04-05). Called here once that plan is applied.
@@ -189,10 +189,6 @@ func BuildPlan(
 
 	return plan, nil
 }
-
-// dedup is the deduplication post-pass. Implemented in dedup.go (plan 04-04).
-// This stub satisfies the compiler until 04-04 is applied.
-func dedup(_ *ProcessPlan) {}
 
 // RemapForRehearsal rewrites all Dest fields in the plan to rehearsal paths.
 // Implemented in remap.go (plan 04-05). This stub satisfies the compiler.
