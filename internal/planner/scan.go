@@ -340,48 +340,6 @@ func planMember(g formats.MemberGroup, archiveName, archivePath string, mtime ti
 	return actions
 }
 
-// planLooseFile builds a PlannedAction for a loose (non-archive) file found
-// in Pass 2 of the walk. match is nil at scan time; filled by 04-03.
-// Note: this variant is called for files where no open fs.File is available
-// (e.g. archive-member paths). The Walk callback uses ClassifyFile directly
-// with an open fs.File for real loose files on disk.
-func planLooseFile(path string, mtime time.Time, cfg *Config) *PlannedAction {
-	assetType, err := formats.ClassifyFile(path, nil)
-	// Note: for loose .ini files (POV candidates), ClassifyFile without a file
-	// handle will return AssetTypeUnknown because content inspection is needed.
-	// In practice, loose .ini files on disk CAN be inspected — the walk provides
-	// an open fs.File. The buildScanActions Walk callback passes the file handle
-	// for loose files. This planLooseFile variant is called from archive paths only.
-	if err != nil || assetType == formats.AssetTypeUnknown {
-		return &PlannedAction{
-			Type:   ActionTypeSendToReview,
-			Source: path,
-			Dest:   filepath.Join(cfg.ReviewDir, filepath.Base(path)),
-			Reason: "unclassified loose file",
-			Mtime:  mtime,
-		}
-	}
-	actionType := assetTypeToMoveAction(assetType)
-	action := &PlannedAction{
-		Type:   actionType,
-		Source: path,
-		Dest:   destForAssetType(cfg, assetType, filepath.Base(path)),
-		Reason: "loose file classified by extension",
-		Mtime:  mtime,
-	}
-	if actionType == ActionTypeMoveVPX {
-		regGame := &PlannedAction{
-			Type:   ActionTypeRegisterGame,
-			Source: action.Dest,
-			Reason: "paired with MOVE_VPX",
-			Mtime:  mtime,
-		}
-		action.RegisterGame = regGame
-		return action // caller must also append regGame separately
-	}
-	return action
-}
-
 // buildScanActions executes the two-pass scan and populates plan.Actions.
 // Pass 1: bundle pre-pass (direct-child directories).
 // Pass 2: recursive Walk over all remaining files.
