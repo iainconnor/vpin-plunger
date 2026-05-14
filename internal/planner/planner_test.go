@@ -38,7 +38,6 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "TestMain: create temp downloads dir:", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(downloadsDir)
 	fixtureDownloadsDir = downloadsDir
 
 	// Build fixture files
@@ -53,8 +52,6 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "TestMain: create install root:", err)
 		os.Exit(1)
 	}
-	defer os.RemoveAll(installRoot)
-
 	fixtureCfg = &Config{
 		VPXDir:          filepath.Join(installRoot, "Tables"),
 		BackglassDir:    filepath.Join(installRoot, "Tables"),
@@ -107,7 +104,12 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	// Capture exit code before cleanup — os.Exit skips deferred calls,
+	// so temp dirs must be removed explicitly before calling os.Exit.
+	code := m.Run()
+	os.RemoveAll(downloadsDir)
+	os.RemoveAll(installRoot)
+	os.Exit(code)
 }
 
 // ---------------------------------------------------------------------------
