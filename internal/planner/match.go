@@ -129,6 +129,10 @@ func resolveMatch(action *PlannedAction, cat *catalog.Catalog, cfg *Config, matc
 			action.Type = ActionTypeSendToReview
 			action.Dest = filepath.Join(cfg.ReviewDir, filepath.Base(action.Source))
 			action.Reason = "matchFn returned empty MatchChoice"
+			if action.RegisterGame != nil {
+				action.RegisterGame.Type = ActionTypeSkip
+				action.RegisterGame.Reason = "matchFn returned empty MatchChoice for paired MOVE_VPX"
+			}
 			return nil
 		}
 	}
