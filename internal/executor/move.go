@@ -62,11 +62,22 @@ func moveDir(src, dst string) error {
 }
 
 // isCrossDevice reports whether err is a cross-device rename error.
-// Unwraps *os.LinkError and checks for syscall.EXDEV.
+// On Linux/macOS: os.Rename wraps syscall.EXDEV (errno 18).
+// On Windows: os.Rename wraps ERROR_NOT_SAME_DEVICE (winerror 17);
+// syscall.EXDEV on Windows is errno 18 (a different value) so EXDEV alone
+// is dead code on Windows. Both cases are checked.
 func isCrossDevice(err error) bool {
 	var linkErr *os.LinkError
-	if errors.As(err, &linkErr) {
-		return errors.Is(linkErr.Err, syscall.EXDEV)
+	if !errors.As(err, &linkErr) {
+		return false
+	}
+	if errors.Is(linkErr.Err, syscall.EXDEV) {
+		return true // Linux/macOS
+	}
+	// Windows: ERROR_NOT_SAME_DEVICE = winerror 17
+	var errno syscall.Errno
+	if errors.As(linkErr.Err, &errno) && errno == 17 {
+		return true
 	}
 	return false
 }

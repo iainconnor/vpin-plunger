@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -37,12 +38,23 @@ func appendREVIEW(reviewDir string, entries []reviewEntry, runTime time.Time) er
 	}
 	defer f.Close()
 
+	// escapeMD sanitises a string for use in a Markdown pipe-table cell.
+	// Pipes break table structure; newlines corrupt rows.
+	escapeMD := func(s string) string {
+		s = strings.ReplaceAll(s, "|", `\|`)
+		s = strings.ReplaceAll(s, "\r\n", " ")
+		s = strings.ReplaceAll(s, "\n", " ")
+		s = strings.ReplaceAll(s, "\r", "")
+		return s
+	}
+
 	fmt.Fprintf(f, "\n## Run %s\n\n", runTime.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(f, "| Source | Intended Destination | Action | Reason | Timestamp |\n")
 	fmt.Fprintf(f, "|--------|---------------------|--------|--------|-----------|\n")
 	for _, e := range entries {
 		fmt.Fprintf(f, "| %s | %s | %s | %s | %s |\n",
-			e.Source, e.Dest, e.Action, e.Reason, e.Timestamp.Format(time.RFC3339))
+			escapeMD(e.Source), escapeMD(e.Dest), escapeMD(e.Action),
+			escapeMD(e.Reason), e.Timestamp.Format(time.RFC3339))
 	}
 	return nil
 }

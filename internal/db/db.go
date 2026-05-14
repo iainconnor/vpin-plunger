@@ -9,12 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // registers "sqlite" driver name (D-11)
-
-	"github.com/iainconnor/vpin-plunger/internal/catalog"
 )
 
 // GameRecord carries the fields UpsertGame writes to the Games table.
@@ -211,17 +208,3 @@ func (d *DB) UpsertGame(rec GameRecord, mtime time.Time) error {
 	}
 }
 
-// buildTAGS constructs the TAGS field value from a catalog match result.
-// Returns a VPW tag string if the entry has a VPW version link, otherwise "".
-// This helper is used by the executor to populate GameRecord.Tags before
-// calling UpsertGame; it keeps db/ free of internal/planner imports (D-13).
-func buildTAGS(match *catalog.MatchResult) string {
-	if match == nil {
-		return ""
-	}
-	var tags []string
-	if match.Entry.VPWLink != "" {
-		tags = append(tags, `"VPW"`)
-	}
-	return strings.Join(tags, ",")
-}

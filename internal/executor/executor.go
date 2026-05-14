@@ -273,6 +273,11 @@ func executeExtractArchive(action *planner.PlannedAction, cfg *Config, database 
 				continue
 			}
 			nestedPath := filepath.Join(extractDir, entry.Name())
+			// Skip if nestedPath is the original archive itself (guard against
+			// re-processing a file that was not yet vaulted or shares a name).
+			if filepath.Clean(nestedPath) == filepath.Clean(action.Source) {
+				continue
+			}
 			f, openErr := os.Open(nestedPath)
 			if openErr != nil {
 				continue
@@ -409,13 +414,11 @@ func executeMoveDir(action *planner.PlannedAction, cfg *Config, reviewEntries *[
 // Returns nil if no handler matches (file is not a known archive type).
 // Uses a fixed inline slice of the three known handlers — ZIPHandler,
 // SevenZipHandler, RARHandler — rather than a registry function that does not exist.
+// Passes nil for the fs.File argument: all Detect implementations use only the
+// path (extension check) and ignore the file content, so opening the file is
+// unnecessary and would hold a Windows file handle open during Extract/os.Remove.
 func detectHandler(path string) formats.Handler {
 	ctx := context.Background()
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
 	// Inline slice of all known archive handlers (no RegisteredHandlers() function exists).
 	handlers := []formats.Handler{
 		formats.ZIPHandler{},
@@ -423,7 +426,7 @@ func detectHandler(path string) formats.Handler {
 		formats.RARHandler{},
 	}
 	for _, h := range handlers {
-		if h.Detect(ctx, path, f) {
+		if h.Detect(ctx, path, nil) {
 			return h
 		}
 	}

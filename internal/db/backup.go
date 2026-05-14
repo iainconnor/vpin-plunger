@@ -37,6 +37,9 @@ func (d *DB) BackupBeforeFirstWrite(dbPath, backupDir string) error {
 // os.ReadDir returns entries sorted by name; timestamp-first names sort
 // chronologically — no explicit time parse needed.
 func pruneBackups(backupDir string, maxPerDay, maxDays int) error {
+	if maxPerDay < 1 || maxDays < 1 {
+		return fmt.Errorf("pruneBackups: maxPerDay and maxDays must be >= 1")
+	}
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
 		return fmt.Errorf("pruneBackups readdir %s: %w", backupDir, err)
@@ -114,9 +117,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("copyFile create %s: %w", dst, err)
 	}
-	defer out.Close()
+	// No defer out.Close() — explicit close below must not double-fire.
 	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
 		return fmt.Errorf("copyFile copy: %w", err)
 	}
-	return out.Close()
+	return out.Close() // surfaces flush/sync errors; called exactly once
 }
