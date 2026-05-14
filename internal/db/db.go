@@ -52,9 +52,15 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("db open %s: %w", path, err)
 	}
+	return newDB(sqldb)
+}
+
+// newDB wraps an already-open *sql.DB, runs validateColumns and lookupEMUID,
+// and returns a ready *DB. Used by Open and by tests that pre-populate an
+// in-memory database before validation (openTestDB factory).
+func newDB(sqldb *sql.DB) (*DB, error) {
 	d := &DB{sql: sqldb, emuid: -1}
 	if err := d.validateColumns(); err != nil {
-		sqldb.Close()
 		return nil, err
 	}
 	if err := d.lookupEMUID(); err != nil {
