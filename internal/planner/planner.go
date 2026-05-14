@@ -190,6 +190,3 @@ func BuildPlan(
 	return plan, nil
 }
 
-// RemapForRehearsal rewrites all Dest fields in the plan to rehearsal paths.
-// Implemented in remap.go (plan 04-05). This stub satisfies the compiler.
-func RemapForRehearsal(_ *ProcessPlan, _ *Config) {}
