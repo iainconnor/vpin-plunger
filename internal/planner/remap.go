@@ -28,6 +28,10 @@ func remapAction(a *PlannedAction, rehearsalDir string) {
 	if a.Dest != "" {
 		a.Dest = filepath.Join(rehearsalDir, filepath.Base(a.Dest))
 	}
+	// Keep RegisterGame.Source in sync with the remapped Dest.
+	if a.RegisterGame != nil && a.RegisterGame.Source != "" {
+		a.RegisterGame.Source = a.Dest
+	}
 	for _, child := range a.Children {
 		remapAction(child, rehearsalDir)
 	}
