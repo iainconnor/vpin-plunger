@@ -32,9 +32,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// resize. Both components receive the message via the fan-out below.
 
 	case CatalogLoadedMsg:
-		m.Catalog = m2.Catalog
+		if m2.Catalog != nil {
+			m.Catalog = m2.Catalog
+		}
 		m.State = StateScanning
 		m.StatusBar.State = string(StateScanning)
+		if m.ScanCfg != nil && m.DownloadsDir != "" {
+			m.matchReqCh = make(chan MatchRequest, 1)
+			return m, StartProcessScan(m.Catalog, m.DownloadsDir, m.ScanCfg, m.matchReqCh, m.AutoMode)
+		}
 		return m, nil
 
 	case CatalogErrorMsg:
