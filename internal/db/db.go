@@ -208,3 +208,51 @@ func (d *DB) UpsertGame(rec GameRecord, mtime time.Time) error {
 	}
 }
 
+// GameRow is a read-only projection of one Games table row, sufficient for
+// the monitor-mode three-section gap report (MOD-07). Defined here (not in
+// app/) because the columns are owned by the db package's schema knowledge.
+type GameRow struct {
+	GameID       int64
+	GameFileName string
+	GameName     string
+	EMUID        int64
+}
+
+const allGamesSQL = `SELECT ID, GameFileName, GameName, EMUID FROM Games WHERE EMUID = ?`
+const allGamesNoFilterSQL = `SELECT ID, GameFileName, GameName, EMUID FROM Games`
+
+// AllGames returns every row from the Games table belonging to the cached
+// Visual Pinball X emulator (d.emuid). If lookupEMUID failed at Open() time
+// (d.emuid == -1), AllGames returns all rows with no EMUID filter — a
+// graceful-degradation fallback so single-emulator machines without a named
+// VPX entry still get a useful monitor report (RESEARCH Open Question #3).
+//
+// MOD-07: caller compares the slice against catalog.Entries() to produce the
+// Not-Installed / Not-in-Catalog / Name-Mismatch sets.
+func (d *DB) AllGames() ([]GameRow, error) {
+	var rows *sql.Rows
+	var err error
+	if d.emuid == -1 {
+		rows, err = d.sql.Query(allGamesNoFilterSQL)
+	} else {
+		rows, err = d.sql.Query(allGamesSQL, d.emuid)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("db AllGames query: %w", err)
+	}
+	defer rows.Close()
+
+	var out []GameRow
+	for rows.Next() {
+		var g GameRow
+		if err := rows.Scan(&g.GameID, &g.GameFileName, &g.GameName, &g.EMUID); err != nil {
+			return nil, fmt.Errorf("db AllGames scan: %w", err)
+		}
+		out = append(out, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("db AllGames rows: %w", err)
+	}
+	return out, nil
+}
+
