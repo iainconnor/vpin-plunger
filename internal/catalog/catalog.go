@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 )
 
 // ErrNotLoaded is returned by match methods when called before Load() has
@@ -33,6 +34,14 @@ func New(cfg *Config) *Catalog {
 func (c *Catalog) Entries() []SheetEntry {
 	return c.entries
 }
+
+// CachePath returns the on-disk path to the cached catalog xlsx.
+// Used by app/ to detect freshness before tea.NewProgram starts (Phase 6).
+func (c *Catalog) CachePath() string { return c.cfg.CachePath }
+
+// Staleness returns the configured staleness threshold.
+// Used by app/ alongside catalog.IsStale to detect freshness (Phase 6).
+func (c *Catalog) Staleness() time.Duration { return c.cfg.Staleness }
 
 // Load downloads the xlsx (if cache is missing or stale per Config.Staleness),
 // parses all data tabs (those whose row 1 contains a "GameName" header), and

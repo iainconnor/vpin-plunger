@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	"sort"
+	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -107,4 +109,220 @@ func downloadPrintCmd(msg DownloadGroupMsg) tea.Cmd {
 	}
 	cmds = append(cmds, tea.Quit)
 	return tea.Sequence(cmds...)
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6 Plan 04 additions: exported entry points + freshness detection
+// ---------------------------------------------------------------------------
+
+// CatalogFreshness is the result of DetectCatalogFreshness.
+// It drives which picker candidates are shown in StateCatalogFreshCheck,
+// or whether the freshness prompt is skipped entirely (CatalogFresh).
+type CatalogFreshness int
+
+const (
+	// CatalogMissing means the cache file does not exist. Prompt: "Download (recommended) / Exit".
+	CatalogMissing CatalogFreshness = iota
+	// CatalogStale means the cache exists but is older than the staleness threshold.
+	// Prompt: "Use cached / Download fresh".
+	CatalogStale
+	// CatalogFresh means the cache is present and recent — skip the prompt.
+	CatalogFresh
+)
+
+// DetectCatalogFreshness inspects the catalog cache state WITHOUT downloading.
+// Used by cmd/plunger/process.go BEFORE tea.NewProgram so it can seed the
+// initial picker with the correct candidates.
+//
+// Implementation: calls catalog.IsStale (package-level, pure) via the
+// CachePath()/Staleness() accessors on the Catalog.
+//   - Missing file (ErrNotExist)  → CatalogMissing
+//   - Exists but older than threshold → CatalogStale
+//   - Exists and within threshold   → CatalogFresh
+//
+// Two-pass approach: first check with a huge threshold to distinguish missing
+// (would return stale=true for missing) vs. exists-but-stale.
+func DetectCatalogFreshness(cat *catalog.Catalog) CatalogFreshness {
+	path := cat.CachePath()
+	threshold := cat.Staleness()
+
+	// Pass 1: use a huge threshold so IsStale only returns true for missing files.
+	// If missingCheck is true, the file is absent.
+	// math.MaxInt64 ns ≈ 292 years — fits in time.Duration (int64 nanoseconds).
+	const hugeThreshold = 1<<62 - 1 // ~146 years in nanoseconds; fits time.Duration
+	missingCheck, err := catalog.IsStale(path, time.Duration(hugeThreshold))
+	if err != nil {
+		return CatalogMissing
+	}
+	if missingCheck {
+		return CatalogMissing
+	}
+
+	// Pass 2: file exists — check actual staleness with configured threshold.
+	stale, err := catalog.IsStale(path, threshold)
+	if err != nil {
+		return CatalogMissing
+	}
+	if stale {
+		return CatalogStale
+	}
+	return CatalogFresh
+}
+
+// StartProcess returns loadCatalogCmd for the process command flow.
+// Called when the freshness check already authorized a load (Fresh path or
+// after the user confirmed via the StateCatalogFreshCheck picker).
+func StartProcess(cat *catalog.Catalog) tea.Cmd {
+	return loadCatalogCmd(cat)
+}
+
+// StartProcessScan returns the scan-launch Cmd batch. In interactive mode,
+// it batches scanCmd with the first waitMatchCmd. In auto mode, only scanCmd
+// is returned (no channel needed; AutoSelectMatchFn is used).
+func StartProcessScan(cat *catalog.Catalog, downloadsDir string, cfg *planner.Config,
+	reqCh chan MatchRequest, auto bool) tea.Cmd {
+	if auto {
+		return scanCmd(downloadsDir, cat, cfg, nil, true)
+	}
+	return tea.Batch(
+		scanCmd(downloadsDir, cat, cfg, reqCh, false),
+		waitMatchCmd(reqCh),
+	)
+}
+
+// StartMonitor returns the initial Cmd chain for `vpin monitor`.
+func StartMonitor(cat *catalog.Catalog, dbPath string) tea.Cmd {
+	return tea.Sequence(loadCatalogCmd(cat), monitorBuildCmd(cat, dbPath))
+}
+
+// StartDownload returns the initial Cmd chain for `vpin download`.
+func StartDownload(cat *catalog.Catalog, dbPath string, dryRun bool) tea.Cmd {
+	return tea.Sequence(loadCatalogCmd(cat), downloadBuildCmd(cat, dbPath, dryRun))
+}
+
+// monitorBuildCmd opens the DB, calls AllGames(), compares against catalog
+// entries, and returns MonitorReportMsg. CanonicalFilename(true) is the
+// correct call form per internal/catalog/types.go (one bool argument required).
+func monitorBuildCmd(cat *catalog.Catalog, dbPath string) tea.Cmd {
+	return func() tea.Msg {
+		database, err := db.Open(dbPath)
+		if err != nil {
+			return CatalogErrorMsg{Err: err}
+		}
+		defer database.Close()
+		rows, err := database.AllGames()
+		if err != nil {
+			return CatalogErrorMsg{Err: err}
+		}
+
+		catEntries := cat.Entries()
+		installedFilenames := make(map[string]bool, len(rows))
+		for _, r := range rows {
+			installedFilenames[strings.ToLower(r.GameFileName)] = true
+		}
+
+		var notInstalled []catalog.SheetEntry
+		for _, e := range catEntries {
+			canonStem := strings.ToLower(e.CanonicalFilename(true)) + ".vpx"
+			if !installedFilenames[canonStem] {
+				notInstalled = append(notInstalled, e)
+			}
+		}
+
+		var notInCatalog, nameMismatch []DBGameRef
+		for _, r := range rows {
+			key := strings.TrimSuffix(strings.ToLower(r.GameFileName), ".vpx")
+			var match *catalog.SheetEntry
+			for i := range catEntries {
+				if strings.EqualFold(catEntries[i].CanonicalFilename(true), key) {
+					match = &catEntries[i]
+					break
+				}
+			}
+			if match == nil {
+				notInCatalog = append(notInCatalog, DBGameRef{
+					GameFileName: r.GameFileName,
+					GameName:     r.GameName,
+				})
+				continue
+			}
+			if !strings.EqualFold(r.GameName, match.Name) {
+				nameMismatch = append(nameMismatch, DBGameRef{
+					GameFileName: r.GameFileName,
+					GameName:     r.GameName,
+					Canonical:    match.Name,
+				})
+			}
+		}
+		return MonitorReportMsg{
+			NotInstalled: notInstalled,
+			NotInCatalog: notInCatalog,
+			NameMismatch: nameMismatch,
+		}
+	}
+}
+
+// downloadBuildCmd opens the DB, finds uninstalled catalog entries, groups by
+// manufacturer + decade, and returns DownloadGroupMsg with VPW+VPS URLs.
+func downloadBuildCmd(cat *catalog.Catalog, dbPath string, dryRun bool) tea.Cmd {
+	return func() tea.Msg {
+		database, err := db.Open(dbPath)
+		if err != nil {
+			return CatalogErrorMsg{Err: err}
+		}
+		defer database.Close()
+		rows, err := database.AllGames()
+		if err != nil {
+			return CatalogErrorMsg{Err: err}
+		}
+
+		installed := make(map[string]bool, len(rows))
+		for _, r := range rows {
+			installed[strings.ToLower(strings.TrimSuffix(r.GameFileName, ".vpx"))] = true
+		}
+
+		type key struct {
+			Manufacturer string
+			Decade       int
+		}
+		groups := make(map[key][]string)
+		for _, e := range cat.Entries() {
+			if installed[strings.ToLower(e.CanonicalFilename(true))] {
+				continue
+			}
+			if e.Year == 0 {
+				continue
+			}
+			k := key{Manufacturer: e.Manufacturer, Decade: (e.Year / 10) * 10}
+			for _, u := range []string{e.VPWLink, e.VPSLink} {
+				if u != "" {
+					groups[k] = append(groups[k], u)
+				}
+			}
+		}
+		var out []DownloadGroup
+		for k, urls := range groups {
+			out = append(out, DownloadGroup{
+				Manufacturer: k.Manufacturer,
+				Decade:       k.Decade,
+				URLs:         dedup(urls),
+			})
+		}
+		_ = dryRun
+		return DownloadGroupMsg{Groups: out}
+	}
+}
+
+// dedup removes duplicate strings from in, preserving first-occurrence order.
+func dedup(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
