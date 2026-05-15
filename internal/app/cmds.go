@@ -264,53 +264,75 @@ func monitorBuildCmd(cat *catalog.Catalog, dbPath string) tea.Cmd {
 
 // downloadBuildCmd opens the DB, finds uninstalled catalog entries, groups by
 // manufacturer + decade, and returns DownloadGroupMsg with VPW+VPS URLs.
+// Delegates to buildDownloadGroups so the same logic is reusable outside the
+// tea.Cmd pipeline (see DownloadBuildOnce).
 func downloadBuildCmd(cat *catalog.Catalog, dbPath string, dryRun bool) tea.Cmd {
 	return func() tea.Msg {
-		database, err := db.Open(dbPath)
+		groups, err := buildDownloadGroups(cat, dbPath)
 		if err != nil {
 			return CatalogErrorMsg{Err: err}
-		}
-		defer database.Close()
-		rows, err := database.AllGames()
-		if err != nil {
-			return CatalogErrorMsg{Err: err}
-		}
-
-		installed := make(map[string]bool, len(rows))
-		for _, r := range rows {
-			installed[strings.ToLower(strings.TrimSuffix(r.GameFileName, ".vpx"))] = true
-		}
-
-		type key struct {
-			Manufacturer string
-			Decade       int
-		}
-		groups := make(map[key][]string)
-		for _, e := range cat.Entries() {
-			if installed[strings.ToLower(e.CanonicalFilename(true))] {
-				continue
-			}
-			if e.Year == 0 {
-				continue
-			}
-			k := key{Manufacturer: e.Manufacturer, Decade: (e.Year / 10) * 10}
-			for _, u := range []string{e.VPWLink, e.VPSLink} {
-				if u != "" {
-					groups[k] = append(groups[k], u)
-				}
-			}
-		}
-		var out []DownloadGroup
-		for k, urls := range groups {
-			out = append(out, DownloadGroup{
-				Manufacturer: k.Manufacturer,
-				Decade:       k.Decade,
-				URLs:         dedup(urls),
-			})
 		}
 		_ = dryRun
-		return DownloadGroupMsg{Groups: out}
+		return DownloadGroupMsg{Groups: groups}
 	}
+}
+
+// buildDownloadGroups is the synchronous data-only core of downloadBuildCmd.
+// It opens the DB, calls AllGames(), groups uninstalled catalog entries by
+// manufacturer + decade, and returns the slice. Called by both downloadBuildCmd
+// (inside a tea.Cmd) and DownloadBuildOnce (outside the tea.Cmd pipeline).
+func buildDownloadGroups(cat *catalog.Catalog, dbPath string) ([]DownloadGroup, error) {
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer database.Close()
+	rows, err := database.AllGames()
+	if err != nil {
+		return nil, err
+	}
+
+	installed := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		installed[strings.ToLower(strings.TrimSuffix(r.GameFileName, ".vpx"))] = true
+	}
+
+	type key struct {
+		Manufacturer string
+		Decade       int
+	}
+	groups := make(map[key][]string)
+	for _, e := range cat.Entries() {
+		if installed[strings.ToLower(e.CanonicalFilename(true))] {
+			continue
+		}
+		if e.Year == 0 {
+			continue
+		}
+		k := key{Manufacturer: e.Manufacturer, Decade: (e.Year / 10) * 10}
+		for _, u := range []string{e.VPWLink, e.VPSLink} {
+			if u != "" {
+				groups[k] = append(groups[k], u)
+			}
+		}
+	}
+	var out []DownloadGroup
+	for k, urls := range groups {
+		out = append(out, DownloadGroup{
+			Manufacturer: k.Manufacturer,
+			Decade:       k.Decade,
+			URLs:         dedup(urls),
+		})
+	}
+	return out, nil
+}
+
+// DownloadBuildOnce is the synchronous data-only counterpart of downloadBuildCmd.
+// It opens the DB, calls AllGames(), groups uninstalled catalog entries by
+// manufacturer + decade, and returns the slice. Used by cmd/plunger/download.go
+// after the TUI exits to perform openURL calls outside the tea.Cmd pipeline.
+func DownloadBuildOnce(cat *catalog.Catalog, dbPath string) ([]DownloadGroup, error) {
+	return buildDownloadGroups(cat, dbPath)
 }
 
 // dedup removes duplicate strings from in, preserving first-occurrence order.
