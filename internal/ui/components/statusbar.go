@@ -33,6 +33,10 @@ const (
 	StatusStateMatching  StatusState = "MATCHING"
 	StatusStateExecuting StatusState = "EXECUTING"
 	StatusStateDone      StatusState = "DONE"
+
+	StatusStateConfirming         StatusState = "CONFIRMING"
+	StatusStateCatalogFreshCheck  StatusState = "CATALOG_FRESH_CHECK"
+	StatusStateRehearsalWipeCheck StatusState = "REHEARSAL_WIPE_CHECK"
 )
 
 // StatusBar is the pinned bottom bar. Always visible. 4 zones left-to-right.
