@@ -1,0 +1,48 @@
+version: 2
+
+project_name: vpin
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: vpin
+    main: ./cmd/plunger
+    binary: vpin
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+      - goos: linux
+        formats: ["tar.gz"]
+    files:
+      - README.md
+      - LICENSE*
+
+snapshot:
+  version_template: "{{ .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
