@@ -10,7 +10,7 @@ build:
 run:
 	$(GO) run ./cmd/plunger
 test:
-	$(GO) test ./... -v -race
+	CGO_ENABLED=1 $(GO) test ./... -v -race
 lint:
 	golangci-lint run ./...
 tidy:
