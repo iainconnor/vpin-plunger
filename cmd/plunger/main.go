@@ -21,6 +21,8 @@ func main() {
 	}
 
 	root.AddCommand(newProcessCmd())
+	root.AddCommand(newMonitorCmd())
+	root.AddCommand(newDownloadCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

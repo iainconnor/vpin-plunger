@@ -165,7 +165,7 @@ func ClassifyDirectory(name string, members []string) AssetType {
 	}
 	// Altcolor: .cRZ present (case-sensitive in extension map? rule says ".cRZ" — check both forms)
 	// RESEARCH.md Pattern: extensions are checked case-insensitively for portability.
-	if extPresent[".crz"] || extPresent[".pac"] || (extPresent[".vni"] && extPresent[".pal"]) {
+	if extPresent[".crz"] || extPresent[".cromc"] || extPresent[".pac"] || (extPresent[".vni"] && extPresent[".pal"]) {
 		return AssetTypeAltcolor
 	}
 	for ext := range musicAudioExts {

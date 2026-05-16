@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 )
 
 // ErrNotLoaded is returned by match methods when called before Load() has
@@ -34,6 +35,14 @@ func (c *Catalog) Entries() []SheetEntry {
 	return c.entries
 }
 
+// CachePath returns the on-disk path to the cached catalog xlsx.
+// Used by app/ to detect freshness before tea.NewProgram starts (Phase 6).
+func (c *Catalog) CachePath() string { return c.cfg.CachePath }
+
+// Staleness returns the configured staleness threshold.
+// Used by app/ alongside catalog.IsStale to detect freshness (Phase 6).
+func (c *Catalog) Staleness() time.Duration { return c.cfg.Staleness }
+
 // Load downloads the xlsx (if cache is missing or stale per Config.Staleness),
 // parses all data tabs (those whose row 1 contains a "GameName" header), and
 // populates the in-process entry slice. Idempotent: safe to call again, but
@@ -48,6 +57,22 @@ func (c *Catalog) Load() error {
 			return fmt.Errorf("catalog download: %w", err)
 		}
 	}
+	return c.loadFromDisk()
+}
+
+// LoadCached reads the xlsx from the on-disk cache WITHOUT performing a
+// freshness check or network download. Used when the user explicitly chooses
+// "Use cached catalog" in the StateCatalogFreshCheck picker — the catalog may
+// be stale but the user has opted to skip the refresh.
+//
+// Returns an error if the cache file does not exist or cannot be parsed.
+func (c *Catalog) LoadCached() error {
+	return c.loadFromDisk()
+}
+
+// loadFromDisk opens and parses the cached xlsx file. Called by both Load()
+// (after an optional download) and LoadCached() (skipping the download).
+func (c *Catalog) loadFromDisk() error {
 	f, err := os.Open(c.cfg.CachePath)
 	if err != nil {
 		return fmt.Errorf("catalog open %s: %w", c.cfg.CachePath, err)

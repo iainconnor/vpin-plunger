@@ -16,4 +16,8 @@ const (
 	StateMatching  AppState = "MATCHING"
 	StateExecuting AppState = "EXECUTING"
 	StateDone      AppState = "DONE"
+
+	StateConfirming         AppState = "CONFIRMING"           // plan-confirm sub-state (D-07)
+	StateCatalogFreshCheck  AppState = "CATALOG_FRESH_CHECK"  // MOD-02: ask before refresh
+	StateRehearsalWipeCheck AppState = "REHEARSAL_WIPE_CHECK" // D-16: ask before wipe
 )

@@ -52,6 +52,12 @@ func createSchema(sqldb *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("createSchema Games: %w", err)
 	}
+	// Seed a Visual Pinball X emulator row so lookupEMUID succeeds in tests
+	// that need a valid emuid (e.g. TestAllGames_FilteredByEMUID).
+	_, err = sqldb.Exec(`INSERT INTO Emulators (EmuName) VALUES ('Visual Pinball X')`)
+	if err != nil {
+		return fmt.Errorf("createSchema seed VPX emulator: %w", err)
+	}
 	return nil
 }
 
@@ -278,5 +284,75 @@ func TestPruneBackups(t *testing.T) {
 		if e.Name() == day+"100000_PUPDatabase.db" {
 			t.Errorf("oldest backup should have been pruned but still exists")
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestAllGames
+// ---------------------------------------------------------------------------
+
+func TestAllGames_FilteredByEMUID(t *testing.T) {
+	d := openTestDB(t)
+	defer d.Close()
+
+	vpxEMUID := d.emuid
+	if vpxEMUID <= 0 {
+		t.Fatalf("test fixture must seed VPX emulator; got emuid %d", vpxEMUID)
+	}
+	otherEMUID := vpxEMUID + 100
+
+	insert := func(emuid int64, fn, gn string) {
+		_, err := d.sql.Exec(`INSERT INTO Games (EMUID, GameName, GameFileName, GameDisplay, Visible,
+            GameYear, Manufact, GameType, DateFileUpdated, WEBGameID, TAGS, IPDBNum, WebLinkURL,
+            WebLink2URL, DesignedBy, Notes, DateAdded)
+            VALUES (?,?,?,?,1,'1992','Williams','SS','','','','','','','','','')`,
+			emuid, gn, fn, gn)
+		if err != nil {
+			t.Fatalf("insert %s: %v", fn, err)
+		}
+	}
+	insert(vpxEMUID, "addams.vpx", "Addams Family")
+	insert(vpxEMUID, "twilight.vpx", "Twilight Zone")
+	insert(otherEMUID, "other.fp", "Other Game")
+
+	got, err := d.AllGames()
+	if err != nil {
+		t.Fatalf("AllGames: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("AllGames returned %d rows; want 2 (filtered to VPX EMUID)", len(got))
+	}
+	seen := map[string]bool{}
+	for _, g := range got {
+		seen[g.GameFileName] = true
+	}
+	if !seen["addams.vpx"] || !seen["twilight.vpx"] {
+		t.Errorf("missing expected VPX games; got %+v", got)
+	}
+	if seen["other.fp"] {
+		t.Errorf("AllGames returned a row with non-VPX EMUID")
+	}
+}
+
+func TestAllGames_DegradedNoFilter(t *testing.T) {
+	d := openTestDB(t)
+	defer d.Close()
+	// Force degraded mode: pretend EMUID lookup failed.
+	d.emuid = -1
+
+	_, err := d.sql.Exec(`INSERT INTO Games (EMUID, GameName, GameFileName, GameDisplay, Visible,
+        GameYear, Manufact, GameType, DateFileUpdated, WEBGameID, TAGS, IPDBNum, WebLinkURL,
+        WebLink2URL, DesignedBy, Notes, DateAdded) VALUES
+        (5, 'A', 'a.vpx', 'A', 1, '1992', 'W', 'SS', '', '', '', '', '', '', '', '', '')`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	got, err := d.AllGames()
+	if err != nil {
+		t.Fatalf("AllGames degraded: %v", err)
+	}
+	if len(got) < 1 {
+		t.Fatalf("AllGames degraded returned %d rows; want >=1 (no filter applied)", len(got))
 	}
 }

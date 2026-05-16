@@ -129,6 +129,7 @@ func TestClassifyDirectory(t *testing.T) {
 		{"Altcolor vni+pal both required", "color", []string{"foo.vni", "foo.pal"}, AssetTypeAltcolor},
 		{"Altcolor vni alone is not", "color", []string{"foo.vni"}, AssetTypeUnknown},
 		{"Altcolor pac", "color", []string{"foo.pac"}, AssetTypeAltcolor},
+		{"Altcolor cROMc", "color", []string{"foo.cROMc"}, AssetTypeAltcolor},
 		{"Music audio + no screens.pup", "music", []string{"track1.mp3", "track2.flac"}, AssetTypeMusic},
 		{"Unknown dissolves", "misc", []string{"readme.txt"}, AssetTypeUnknown},
 	}
