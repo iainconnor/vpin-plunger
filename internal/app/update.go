@@ -138,7 +138,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Picker.Input.SetValue("")
 				m.State = StateScanning
 				m.StatusBar.State = string(StateScanning)
-				return m, nil
+				// Re-arm the receiver so the next MatchRequest from scanCmd is
+				// delivered. Without this, scanCmd blocks on matchReqCh forever
+				// after the first match is resolved (WR-05).
+				return m, waitMatchCmd(m.matchReqCh)
 			}
 			// 2. Plan-confirm picker (D-07)
 			if m.Confirming {
@@ -208,14 +211,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.PendingMatch = nil
 			m.Picker.SetCandidates(nil)
 			m.State = StateScanning
-			return m, nil
+			m.StatusBar.State = string(StateScanning)
+			// Re-arm the receiver for the next MatchRequest (WR-05).
+			return m, waitMatchCmd(m.matchReqCh)
 		}
 		if m2.String() == "i" && m.PendingMatch != nil {
 			m.PendingMatch.Response <- planner.MatchChoice{Ignore: true}
 			m.PendingMatch = nil
 			m.Picker.SetCandidates(nil)
 			m.State = StateScanning
-			return m, nil
+			m.StatusBar.State = string(StateScanning)
+			// Re-arm the receiver for the next MatchRequest (WR-05).
+			return m, waitMatchCmd(m.matchReqCh)
 		}
 	}
 

@@ -265,6 +265,11 @@ func runProcess(flags *processFlags) error {
 	if !isatty.IsTerminal(os.Stdout.Fd()) {
 		// Non-TTY: no picker prompts possible. Require --auto to keep the
 		// run unattended; return a clear error if a picker prompt would be shown.
+		//
+		// Invariant: when autoMode is true the switch above always collapses
+		// initState to StateLoading (or exits), so this check is only reachable
+		// when !autoMode. We check !autoMode implicitly — if we are here and
+		// initState is still a picker state, autoMode must be false.
 		if initState == app.StateRehearsalWipeCheck || initState == app.StateCatalogFreshCheck {
 			return fmt.Errorf("non-TTY mode requires --auto to handle pre-scan prompts")
 		}
