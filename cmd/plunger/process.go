@@ -96,9 +96,11 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close() // captures flush/sync errors; not deferred
 }
 
 // determineInitialState computes which pre-scan picker (if any) should be shown
