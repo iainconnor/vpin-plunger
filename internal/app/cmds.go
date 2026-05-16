@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -134,36 +135,22 @@ const (
 // Used by cmd/plunger/process.go BEFORE tea.NewProgram so it can seed the
 // initial picker with the correct candidates.
 //
-// Implementation: calls catalog.IsStale (package-level, pure) via the
-// CachePath()/Staleness() accessors on the Catalog.
-//   - Missing file (ErrNotExist)  → CatalogMissing
-//   - Exists but older than threshold → CatalogStale
-//   - Exists and within threshold   → CatalogFresh
-//
-// Two-pass approach: first check with a huge threshold to distinguish missing
-// (would return stale=true for missing) vs. exists-but-stale.
+// Uses os.Stat directly to distinguish missing from stale — avoids the fragile
+// two-pass heuristic that relied on an undocumented contract of catalog.IsStale
+// returning (true, nil) for a missing file at any threshold.
+//   - File absent (os.IsNotExist or other stat error) → CatalogMissing
+//   - Exists but older than configured staleness threshold → CatalogStale
+//   - Exists and within threshold → CatalogFresh
 func DetectCatalogFreshness(cat *catalog.Catalog) CatalogFreshness {
 	path := cat.CachePath()
-	threshold := cat.Staleness()
-
-	// Pass 1: use a huge threshold so IsStale only returns true for missing files.
-	// If missingCheck is true, the file is absent.
-	// math.MaxInt64 ns ≈ 292 years — fits in time.Duration (int64 nanoseconds).
-	const hugeThreshold = 1<<62 - 1 // ~146 years in nanoseconds; fits time.Duration
-	missingCheck, err := catalog.IsStale(path, time.Duration(hugeThreshold))
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return CatalogMissing
+	}
 	if err != nil {
-		return CatalogMissing
+		return CatalogMissing // treat unexpected stat errors as missing
 	}
-	if missingCheck {
-		return CatalogMissing
-	}
-
-	// Pass 2: file exists — check actual staleness with configured threshold.
-	stale, err := catalog.IsStale(path, threshold)
-	if err != nil {
-		return CatalogMissing
-	}
-	if stale {
+	if time.Since(info.ModTime()) > cat.Staleness() {
 		return CatalogStale
 	}
 	return CatalogFresh
