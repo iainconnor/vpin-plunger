@@ -209,6 +209,26 @@ func runProcess(flags *processFlags) error {
 			if err := os.RemoveAll(plannerCfg.RehearsalDir); err != nil {
 				return fmt.Errorf("auto wipe rehearsal/: %w", err)
 			}
+			// Re-seed the rehearsal DB after the wipe: the DB copy made above was
+			// inside the dir we just deleted, so dbPath points to a non-existent
+			// file. Re-create rehearsal/ and re-copy the source DB so the executor
+			// opens a valid schema. (Rule 1 fix: auto-wipe left dbPath dangling.)
+			if flags.rehearsal {
+				rehDB := filepath.Join(plannerCfg.RehearsalDir, "PUPDatabase.db")
+				origDB := flags.db
+				if origDB == "" {
+					origDB = config.DefaultDBPath
+				}
+				if err := os.MkdirAll(plannerCfg.RehearsalDir, 0o755); err != nil {
+					return fmt.Errorf("re-create rehearsal/ after wipe: %w", err)
+				}
+				if _, statErr := os.Stat(origDB); statErr == nil {
+					if err := copyFile(origDB, rehDB); err != nil {
+						return fmt.Errorf("re-copy PUPDatabase after rehearsal wipe: %w", err)
+					}
+				}
+				dbPath = rehDB
+			}
 			// After wipe, re-evaluate (rehearsal dir is gone; no wipe prompt needed).
 			initState, initCands, initCursor, initCmd = determineInitialState(false, "", cat)
 		case app.StateCatalogFreshCheck:
