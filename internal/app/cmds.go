@@ -229,16 +229,19 @@ func monitorBuildCmd(cat *catalog.Catalog, dbPath string) tea.Cmd {
 			}
 		}
 
+		// Build a reverse map from catalog canonical filename (lower-cased, no
+		// extension) to *SheetEntry so the per-row lookup below is O(1) rather
+		// than O(m) for each of the n installed games.
+		catByFilename := make(map[string]*catalog.SheetEntry, len(catEntries))
+		for i := range catEntries {
+			key := strings.ToLower(catEntries[i].CanonicalFilename(true))
+			catByFilename[key] = &catEntries[i]
+		}
+
 		var notInCatalog, nameMismatch []DBGameRef
 		for _, r := range rows {
 			key := strings.TrimSuffix(strings.ToLower(r.GameFileName), ".vpx")
-			var match *catalog.SheetEntry
-			for i := range catEntries {
-				if strings.EqualFold(catEntries[i].CanonicalFilename(true), key) {
-					match = &catEntries[i]
-					break
-				}
-			}
+			match := catByFilename[key]
 			if match == nil {
 				notInCatalog = append(notInCatalog, DBGameRef{
 					GameFileName: r.GameFileName,
