@@ -16,7 +16,7 @@
 - [x] **Phase 4: Plan Builder** — Two-pass scan, ProcessPlan tree, deduplication, dry-run report, rehearsal remapping, and all 65 ported Python tests (completed 2026-05-14)
 - [x] **Phase 5: Executor & Database** — File moves, archive extraction, PUPDatabase upsert, backup rotation, REVIEW.md, and per-action failure handling (completed 2026-05-14)
 - [x] **Phase 6: Full Binary** — Complete process/monitor/download CLI modes wired end-to-end with full-run rehearsal smoke test (completed 2026-05-16)
-- [ ] **Phase 7: Documentation & CI/CD** — Beautiful README with branding, full CLI reference, build/install guide, GitHub Actions pipeline, release automation, and doc-freshness hooks
+- [x] **Phase 7: Documentation & CI/CD** — Beautiful README with branding, full CLI reference, build/install guide, GitHub Actions pipeline, release automation, and doc-freshness hooks (completed 2026-05-16)
 
 ---
 
@@ -140,7 +140,7 @@
 - [x] 07-01-PLAN.md — README.md: hero, badges, pitch, install, quickstart, CLI ref, build docs (DOC-01, DOC-02, DOC-03)
 - [x] 07-02-PLAN.md — Makefile fixes + .goreleaser.yml + .golangci.yml (DOC-02, CI-02, CI-03)
 - [x] 07-03-PLAN.md — .github/workflows/ci.yml + release.yml + check-docs.sh (CI-01, CI-02, CI-03, CI-04, DOC-04, DOC-05)
-- [ ] 07-04-PLAN.md — CONTRIBUTING.md + integration verification (DOC-04)
+- [x] 07-04-PLAN.md — CONTRIBUTING.md + integration verification (DOC-04)
 
 ---
 
@@ -154,7 +154,7 @@
 | 4. Plan Builder | 6/6 | Complete   | 2026-05-14 |
 | 5. Executor & Database | 4/4 | Complete | 2026-05-14 |
 | 6. Full Binary | 7/7 | Complete | 2026-05-16 |
-| 7. Documentation & CI/CD | 3/4 | In progress | — |
+| 7. Documentation & CI/CD | 4/4 | Complete | 2026-05-16 |
 
 ---
 
