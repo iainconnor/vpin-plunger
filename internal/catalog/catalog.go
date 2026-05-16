@@ -57,6 +57,22 @@ func (c *Catalog) Load() error {
 			return fmt.Errorf("catalog download: %w", err)
 		}
 	}
+	return c.loadFromDisk()
+}
+
+// LoadCached reads the xlsx from the on-disk cache WITHOUT performing a
+// freshness check or network download. Used when the user explicitly chooses
+// "Use cached catalog" in the StateCatalogFreshCheck picker — the catalog may
+// be stale but the user has opted to skip the refresh.
+//
+// Returns an error if the cache file does not exist or cannot be parsed.
+func (c *Catalog) LoadCached() error {
+	return c.loadFromDisk()
+}
+
+// loadFromDisk opens and parses the cached xlsx file. Called by both Load()
+// (after an optional download) and LoadCached() (skipping the download).
+func (c *Catalog) loadFromDisk() error {
 	f, err := os.Open(c.cfg.CachePath)
 	if err != nil {
 		return fmt.Errorf("catalog open %s: %w", c.cfg.CachePath, err)

@@ -15,10 +15,23 @@ import (
 	"github.com/iainconnor/vpin-plunger/internal/planner"
 )
 
-// loadCatalogCmd: runs catalog.Load() and returns CatalogLoadedMsg or CatalogErrorMsg.
+// loadCatalogCmd: runs catalog.Load() (download if stale/missing, then parse)
+// and returns CatalogLoadedMsg or CatalogErrorMsg.
 func loadCatalogCmd(cat *catalog.Catalog) tea.Cmd {
 	return func() tea.Msg {
 		if err := cat.Load(); err != nil {
+			return CatalogErrorMsg{Err: err}
+		}
+		return CatalogLoadedMsg{Catalog: cat}
+	}
+}
+
+// loadCatalogCmdForce: runs catalog.LoadCached() — loads from disk WITHOUT
+// performing a freshness check or network download. Used when the user
+// explicitly chooses "Use cached catalog" in the StateCatalogFreshCheck picker.
+func loadCatalogCmdForce(cat *catalog.Catalog) tea.Cmd {
+	return func() tea.Msg {
+		if err := cat.LoadCached(); err != nil {
 			return CatalogErrorMsg{Err: err}
 		}
 		return CatalogLoadedMsg{Catalog: cat}

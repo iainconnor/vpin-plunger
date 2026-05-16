@@ -173,25 +173,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// 4. Catalog freshness picker (MOD-02)
 			if m.State == StateCatalogFreshCheck {
-				yes := m.Picker.Cursor == 0
+				cursor := m.Picker.Cursor
 				m.Picker.SetCandidates(nil)
-				if !yes && m.Catalog == nil {
-					// Picker showed ["Download (recommended)", "Exit"] for the
-					// missing-cache case; "Exit" path quits cleanly.
-					m.State = StateDone
-					m.StatusBar.State = string(StateDone)
-					return m, tea.Sequence(Print("CANCELLED"), tea.Quit)
-				}
-				m.State = StateLoading
-				m.StatusBar.State = string(StateLoading)
-				if yes {
-					// Yes -> download/refresh
+				freshness := DetectCatalogFreshness(m.Catalog)
+				switch freshness {
+				case CatalogMissing:
+					// Picker showed ["Download (recommended)", "Exit"].
+					// cursor==0 → Download; cursor==1 → Exit.
+					if cursor != 0 {
+						m.State = StateDone
+						m.StatusBar.State = string(StateDone)
+						return m, tea.Sequence(Print("CANCELLED"), tea.Quit)
+					}
+					// Download the catalog.
+					m.State = StateLoading
+					m.StatusBar.State = string(StateLoading)
+					return m, loadCatalogCmd(m.Catalog)
+				default: // CatalogStale or CatalogFresh (re-checked after wipe)
+					// Picker showed ["Use cached catalog", "Download fresh"].
+					// cursor==0 → Use cached (no download); cursor==1 → Download fresh.
+					m.State = StateLoading
+					m.StatusBar.State = string(StateLoading)
+					if cursor == 0 {
+						// User chose "Use cached" — load from disk without refresh.
+						return m, loadCatalogCmdForce(m.Catalog)
+					}
+					// User chose "Download fresh" — download regardless of staleness.
 					return m, loadCatalogCmd(m.Catalog)
 				}
-				// No (stale cache) -> use existing cache without refresh.
-				// catalog.Load() with a non-stale cache short-circuits; calling
-				// it is the simplest way to obtain CatalogLoadedMsg.
-				return m, loadCatalogCmd(m.Catalog)
 			}
 		}
 		if m2.String() == "r" && m.PendingMatch != nil {
@@ -228,21 +237,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // advanceToCatalogFreshCheck transitions the Model into StateCatalogFreshCheck
-// with the appropriate picker items seeded. Used by both StartProcess (Wave 2)
-// and the rehearsal-wipe Yes handler above.
+// with the appropriate picker items seeded. Used by the rehearsal-wipe Yes
+// handler (after wipe, re-evaluate cache state).
+//
+// Picker candidates are seeded from the actual cache state via
+// DetectCatalogFreshness, not from m.Catalog being nil (m.Catalog is always
+// non-nil after WithCatalog is applied at startup).
 func advanceToCatalogFreshCheck(m Model) (tea.Model, tea.Cmd) {
 	m.State = StateCatalogFreshCheck
 	m.StatusBar.State = string(StateCatalogFreshCheck)
-	// The exact picker items + cursor (missing vs stale) are seeded by the
-	// caller (Plan 04 Task 3 sets them via WithPickerCandidates before
-	// tea.NewProgram, or by re-seeding here from m.Catalog.CacheState()).
-	// For the chained case we re-seed defensively from m.Catalog metadata.
-	if m.Catalog == nil {
+	switch DetectCatalogFreshness(m.Catalog) {
+	case CatalogMissing:
 		m.Picker.SetCandidates([]components.Candidate{
 			{Name: "Download catalog (recommended)", Parenthetical: "fetch fresh xlsx", Confidence: 0},
 			{Name: "Exit", Parenthetical: "abort", Confidence: 0},
 		})
-	} else {
+	default: // CatalogStale or CatalogFresh — offer use-cached / refresh
 		m.Picker.SetCandidates([]components.Candidate{
 			{Name: "Use cached catalog", Parenthetical: "skip refresh", Confidence: 0},
 			{Name: "Download fresh", Parenthetical: "refresh from sheet", Confidence: 0},
